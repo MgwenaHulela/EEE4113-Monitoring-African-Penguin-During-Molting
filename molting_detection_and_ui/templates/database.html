@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Penguin Database - Penguin Monitoring System</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f0f8ff;
+    }
+    .header {
+      text-align: center;
+      padding: 1.5rem 0;
+      background-color: transparent;
+      color: #2d3748;
+    }
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .header p {
+      color: #4a5568;
+      margin-bottom: 0;
+    }
+    .header .penguin-icon {
+      color: #9370DB;
+      margin-right: 0.75rem;
+    }
+    .nav-container {
+      background-color: #e3f2fd;
+      padding: 0.5rem 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .nav-link {
+      color: #495057;
+      padding: 0.5rem 1rem;
+      margin: 0 0.25rem;
+    }
+    .nav-link.active {
+      background-color: #0d6efd;
+      color: white;
+      border-radius: 0.25rem;
+    }
+    .table th {
+      font-weight: bold;
+    }
+    .table tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    .btn-view {
+      background-color: #0d6efd;
+      color: white;
+      padding: 0.25rem 1rem;
+      border-radius: 0.25rem;
+      text-decoration: none;
+    }
+    .badge-normal {
+      background-color: #198754;
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+    }
+    .badge-molting {
+      background-color: #ffc107;
+      color: black;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+    }
+    .badge-danger {
+      background-color: red;
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+    }
+    .search-container {
+      display: flex;
+      padding: 1rem;
+    }
+    .search-input {
+      flex-grow: 1;
+      padding: 0.5rem;
+      border: 1px solid #ced4da;
+      border-radius: 0.25rem 0 0 0.25rem;
+    }
+    .search-button {
+      background-color: #0d6efd;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0 0.25rem 0.25rem 0;
+    }
+    .dropdown-select {
+      padding: 0.5rem;
+      border: 1px solid #ced4da;
+      border-radius: 0.25rem;
+      margin-left: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="container">
+      <h1><span class="penguin-icon"></span> Penguin Monitoring System</h1>
+      <p>Track and monitor penguin health and molting status</p>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <div class="nav-container">
+    <div class="container">
+      <div class="d-flex justify-content-center">
+        <a class="nav-link" href="/">Dashboard</a>
+        <a class="nav-link" href="/detection.html">Live Detection</a>
+        <a class="nav-link active" href="/database.html">Penguin Database</a>
+        <a class="nav-link" href="/history.html">Detection History</a>
+        <a class="nav-link" href="/manual.html">Manual Detection</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="container my-4">
+    <h2>Penguin Database</h2>
+
+    <!-- Search and filter bar -->
+    <div class="card my-4">
+      <div class="search-container">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search penguins...">
+        <button class="search-button" id="searchButton">Search</button>
+        <select class="dropdown-select" id="filterStatus">
+          <option value="all">All Statuses</option>
+          <option value="molting">Molting</option>
+          <option value="non-molting">Not Molting</option>
+          <option value="danger">Danger</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Penguin Data Table -->
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>RFID</th>
+              <th>Sex</th>
+              <th>Weight</th>
+              <th>Stage Name</th>
+              <th>Daily Change</th>
+              <th>Status</th>
+              <th>Last Seen</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="penguinTableBody">
+            <!-- Loading placeholder -->
+            <tr>
+              <td colspan="8" class="text-center">Loading penguin data...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Pagination -->
+      <div class="d-flex justify-content-center my-3">
+        <ul class="pagination" id="pagination">
+          <li class="page-item"><a class="page-link" href="#">Previous</a></li>
+          <li class="page-item active"><a class="page-link" href="#">1</a></li>
+          <li class="page-item"><a class="page-link" href="#">2</a></li>
+          <li class="page-item"><a class="page-link" href="#">3</a></li>
+          <li class="page-item"><a class="page-link" href="#">Next</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      let penguins = [];
+      let currentPage = 1;
+      const itemsPerPage = 5; // Items per page
+      
+      // Fetch penguin data
+      fetch('/api/penguins')
+        .then(response => response.json())
+        .then(data => {
+          penguins = data;
+          renderPenguins();
+          setupPagination();
+        })
+        .catch(error => {
+          document.getElementById('penguinTableBody').innerHTML = 
+            `<tr><td colspan="8" class="text-center text-danger">
+              Failed to load penguin data: ${error.message}
+            </td></tr>`;
+        });
+      
+      function renderPenguins(filtered = penguins) {
+        const start = (currentPage - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        const paginatedItems = filtered.slice(start, end);
+        
+        if (paginatedItems.length === 0) {
+          document.getElementById('penguinTableBody').innerHTML = 
+            '<tr><td colspan="8" class="text-center">No penguins found</td></tr>';
+          return;
+        }
+        
+        const html = paginatedItems.map(penguin => {
+          return `
+            <tr>
+              <td>${penguin.rfid}</td>
+              <td>${penguin.sex || 'unknown'}</td>
+              <td>${penguin.weight_kg || '0'} kg</td>
+              <td>${penguin.stage_name || 'Non-molting'}</td>
+              <td>${formatDailyChange(penguin.daily_change)}</td>
+              <td>${getStatusBadge(penguin)}</td>
+              <td>${formatDate(penguin.last_detection_time)}</td>
+              <td>
+                <a href="/penguin/${penguin.rfid}" class="btn-view">View</a>
+              </td>
+            </tr>
+          `;
+        }).join('');
+        
+        document.getElementById('penguinTableBody').innerHTML = html;
+      }
+      
+      function setupPagination(filtered = penguins) {
+        const pageCount = Math.ceil(filtered.length / itemsPerPage);
+        
+        let html = `
+          <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+          </li>
+        `;
+        
+        for (let i = 1; i <= pageCount; i++) {
+          html += `
+            <li class="page-item ${currentPage === i ? 'active' : ''}">
+              <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>
+          `;
+        }
+        
+        html += `
+          <li class="page-item ${currentPage === pageCount ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+          </li>
+        `;
+        
+        document.getElementById('pagination').innerHTML = html;
+        
+        // Add event listeners to pagination buttons
+        document.querySelectorAll('#pagination .page-link').forEach(item => {
+          item.addEventListener('click', e => {
+            e.preventDefault();
+            const newPage = parseInt(e.target.dataset.page);
+            if (newPage >= 1 && newPage <= pageCount) {
+              currentPage = newPage;
+              renderPenguins(filtered);
+              setupPagination(filtered);
+            }
+          });
+        });
+      }
+      
+      document.getElementById('searchButton').addEventListener('click', () => {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const statusFilter = document.getElementById('filterStatus').value;
+        
+        const filtered = penguins.filter(penguin => {
+          const matchesSearch = penguin.rfid.toLowerCase().includes(searchTerm) || 
+                              (penguin.sex && penguin.sex.toLowerCase().includes(searchTerm)) ||
+                              (penguin.stage_name && penguin.stage_name.toLowerCase().includes(searchTerm));
+          
+          // Filter based on status
+          let matchesStatus = true;
+          if (statusFilter === 'molting') {
+            matchesStatus = penguin.health === 'Molting';
+          } else if (statusFilter === 'non-molting') {
+            matchesStatus = penguin.health === 'Healthy';
+          } else if (statusFilter === 'danger') {
+            matchesStatus = penguin.health === 'Danger!!!';
+          }
+          
+          return matchesSearch && matchesStatus;
+        });
+        
+        currentPage = 1;
+        renderPenguins(filtered);
+        setupPagination(filtered);
+      });
+      
+      document.getElementById('filterStatus').addEventListener('change', () => {
+        document.getElementById('searchButton').click();
+      });
+      
+      function formatDate(dateString) {
+        if (!dateString) return 'Unknown';
+        const date = new Date(dateString);
+        return date.toLocaleString('en-GB', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).replace(',', '');
+      }
+      
+      function formatDailyChange(change) {
+        if (change === null || change === undefined) return '0.00 kg';
+        return `${parseFloat(change).toFixed(2)} kg`;
+      }
+      
+      function getStatusBadge(penguin) {
+  // Check if it's not a penguin first
+  if (penguin.stage_name === 'Not a Penguin') {
+    return '<span class="badge-danger">Danger</span>';
+  } 
+  
+  // Check health status if available
+  if (penguin.health) {
+    if (penguin.health === 'Molting') {
+      return '<span class="badge-molting">Molting</span>';
+    } else if (penguin.health === 'Healthy') {
+      return '<span class="badge-normal">Normal</span>';
+    }
+  }
+  
+  // If health not available, check stage_name
+  if (penguin.stage_name && penguin.stage_name.includes('stage')) {
+    return '<span class="badge-molting">Molting</span>';
+  } else if (penguin.stage_name === 'Non-molting') {
+    return '<span class="badge-normal">Normal</span>';
+  }
+  
+  // Default case
+  return '<span class="badge-secondary">Unknown</span>';
+}
+    });
+  </script>
+</body>
+</html>

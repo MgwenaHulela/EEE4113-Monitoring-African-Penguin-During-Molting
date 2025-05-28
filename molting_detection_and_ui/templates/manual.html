@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Detection | Penguin Monitoring System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #3498db;
+            --secondary: #2c3e50;
+            --light: #ecf0f1;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f0f7fc;
+            background-image: linear-gradient(to bottom, #f0f7fc, #e1f0fa);
+            color: var(--secondary);
+            min-height: 100vh;
+        }
+
+        .manual-container {
+            max-width: 1200px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin: 2rem auto;
+        }
+
+        .nav-pills .nav-link.active {
+            background-color: var(--primary);
+        }
+
+        .nav-pills .nav-link {
+            color: var(--secondary);
+        }
+
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 1.5rem;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary);
+            background-color: #f8f9fa;
+        }
+
+        .upload-area.active {
+            border-color: var(--primary);
+            background-color: #e3f2fd;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .penguin-icon {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            font-size: 2rem;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        .results-container {
+            display: none;
+            margin-top: 2rem;
+            padding: 1.5rem;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            border-left: 5px solid var(--primary);
+        }
+
+        .molting-badge {
+            font-size: 1rem;
+            padding: 0.5rem 1rem;
+        }
+
+        .confidence-bar {
+            height: 10px;
+            border-radius: 5px;
+            background-color: #e9ecef;
+            margin: 0.5rem 0;
+        }
+
+        .confidence-progress {
+            height: 100%;
+            border-radius: 5px;
+            background-color: var(--primary);
+        }
+
+        #resultImage {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .database-update-indicator {
+            display: none;
+            padding: 10px;
+            margin-top: 15px;
+            background-color: #d4edda;
+            border-radius: 5px;
+            color: #155724;
+        }
+
+        .activity-log {
+            height: 200px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            margin-top: 15px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 3px solid #ccc;
+        }
+
+        .log-time {
+            color: #6c757d;
+            font-size: 0.8rem;
+        }
+
+        .log-success {
+            border-left-color: #28a745;
+        }
+
+        .log-warning {
+            border-left-color: #ffc107;
+        }
+
+        .log-error {
+            border-left-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+ <div class="dashboard-container">
+        <header class="text-center mb-5">
+            <h1> Penguin Monitoring System</h1>
+            <p class="lead">Track and monitor penguin health and molting status</p>
+        </header>
+    <div class="manual-container">
+       <!-- Navigation -->
+<ul class="nav nav-pills justify-content-center mb-4">
+    <li class="nav-item">
+        <a class="nav-link" href="/">Dashboard</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/detection.html">Live Detection</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/database.html">Penguin Database</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/history.html">Detection History</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link active" href="/manual.html">Manual Detection</a>
+    </li>
+</ul>
+
+        <h2 class="text-center mb-4">Manual Penguin Detection</h2>
+
+        <!-- Flash Messages -->
+        <div id="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <form id="manualDetectionForm"  method="POST" enctype="multipart/form-data">
+            <div class="mb-4">
+                <label class="form-label">Upload Penguin Image</label>
+                <div class="upload-area" id="uploadArea">
+                    <i class="bi bi-cloud-arrow-up" style="font-size: 2rem; color: #7f8c8d;"></i>
+                    <p class="mt-2">Drag & drop penguin image here or click to browse</p>
+                    <input type="file" id="imageUpload" name="image" accept="image/*" style="display: none;" required>
+                    <img id="imagePreview" class="preview-image" alt="Preview">
+                </div>
+                <div class="form-text">Clear, well-lit images improve identification accuracy</div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <label for="rfid" class="form-label">Penguin RFID</label>
+                    <input type="text" class="form-control" id="rfid" name="rfid" placeholder="e.g. PENG_1234" required>
+                    <div class="form-text">Enter the penguin's RFID tag number</div>
+                </div>
+                <div class="col-md-6">
+                    <label for="weight" class="form-label">Weight (kg)</label>
+                    <input type="number" step="0.1" class="form-control" id="weight" name="weight" placeholder="e.g. 4.2" required>
+                    <div class="form-text">Current weight in kilograms</div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label for="sex" class="form-label">Sex</label>
+                <select class="form-select" id="sex" name="sex" required>
+                    <option value="" selected disabled>Select sex</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="unknown">Unknown</option>
+                </select>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <button type="reset" class="btn btn-outline-secondary me-md-2">Clear Form</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Detect and Submit
+                </button>
+            </div>
+        </form>
+
+        <!-- Results Container - Will be shown after detection -->
+        <div id="resultsContainer" class="results-container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h3 class="mb-3">Detection Results</h3>
+                    <div class="mb-3">
+                        <strong>Penguin RFID:</strong> <span id="resultRfid"></span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Weight:</strong> <span id="resultWeight"></span> kg
+                    </div>
+                    <div class="mb-3">
+                        <strong>Sex:</strong> <span id="resultSex"></span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Status:</strong>
+                        <span id="resultMolting" class="badge rounded-pill"></span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Confidence:</strong> <span id="resultConfidence"></span>%
+                        <div class="confidence-bar">
+                            <div id="confidenceProgress" class="confidence-progress"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Detection Time:</strong> <span id="resultTime"></span>
+                    </div>
+                    <div id="databaseUpdateIndicator" class="database-update-indicator">
+                        <i class="bi bi-check-circle-fill me-2"></i> Database updated successfully
+                    </div>
+                </div>
+                <div class="col-md-6 text-center">
+                    <h4 class="mb-3">Analyzed Image</h4>
+                    <img id="resultImage" src="" alt="Penguin Image">
+                </div>
+            </div>
+
+            <!-- Activity Log Section -->
+            <div class="mt-4">
+                <h4>Activity Log</h4>
+                <div id="activityLog" class="activity-log">
+                    <div class="log-entry">
+                        <span class="log-time">[System]</span> Ready to process penguin detection...
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                <button id="viewDatabaseBtn" class="btn btn-outline-primary me-2">
+                    <i class="bi bi-table"></i> View Database
+                </button>
+                <button id="viewHistoryBtn" class="btn btn-outline-primary me-2">
+                    <i class="bi bi-clock-history"></i> View History
+                </button>
+                <button id="newDetectionBtn" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> New Detection
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="penguin-icon">🐧</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreview = document.getElementById('imagePreview');
+        const manualDetectionForm = document.getElementById('manualDetectionForm');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const newDetectionBtn = document.getElementById('newDetectionBtn');
+        const viewDatabaseBtn = document.getElementById('viewDatabaseBtn');
+        const viewHistoryBtn = document.getElementById('viewHistoryBtn');
+        const activityLog = document.getElementById('activityLog');
+        const databaseUpdateIndicator = document.getElementById('databaseUpdateIndicator');
+
+        // Add log entry
+        function addLogEntry(message, type = '') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type ? 'log-' + type : ''}`;
+            
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString();
+            
+            entry.innerHTML = `<span class="log-time">[${timestamp}]</span> ${message}`;
+            activityLog.appendChild(entry);
+            activityLog.scrollTop = activityLog.scrollHeight;
+        }
+
+        // File upload handling
+        uploadArea.addEventListener('click', () => {
+            imageUpload.click();
+        });
+
+        imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    imagePreview.src = event.target.result;
+                    imagePreview.style.display = 'block';
+                    uploadArea.classList.add('active');
+                    addLogEntry(`Image '${file.name}' selected (${Math.round(file.size/1024)} KB)`, 'success');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('active');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('active');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('active');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.match('image.*')) {
+                imageUpload.files = e.dataTransfer.files;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    imagePreview.src = event.target.result;
+                    imagePreview.style.display = 'block';
+                    addLogEntry(`Image '${file.name}' dropped (${Math.round(file.size/1024)} KB)`, 'success');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Updated form submission handling with proper integration
+        manualDetectionForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    // Validate inputs
+    const rfidValue = document.getElementById('rfid').value.trim();
+    const weightValue = document.getElementById('weight').value.trim();
+    const sexValue = document.getElementById('sex').value.trim();
+    const imageFile = imageUpload.files[0];
+    
+    if (!rfidValue || !weightValue || !sexValue || !imageFile) {
+        addLogEntry("Please fill all required fields", 'error');
+        return;
+    }
+
+    // Prepare form data
+    const formData = new FormData(manualDetectionForm);
+    formData.append("last_weight", weightValue);
+    formData.append("sex", sexValue);
+
+    // UI loading state
+    const submitBtn = manualDetectionForm.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+    submitBtn.disabled = true;
+    
+    addLogEntry(`Processing detection for penguin ${rfidValue}...`);
+
+    try {
+        // API call with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
+        const response = await fetch('/detection.html', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        // Verify response
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Server error: ${response.status}`);
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Invalid response format');
+        }
+
+        const data = await response.json();
+        
+        // Validate response structure
+        if (typeof data.molting_prediction === 'undefined' || typeof data.confidence === 'undefined') {
+            throw new Error('Incomplete data received from server');
+        }
+
+        // Process successful response
+        processDetectionResults(data);
+        
+    } catch (error) {
+        console.error('Detection error:', error);
+        addLogEntry(`Error: ${error.message}`, 'error');
+        submitBtn.innerHTML = 'Try Again';
+        setTimeout(() => {
+            submitBtn.innerHTML = originalBtnText;
+            submitBtn.disabled = false;
+        }, 2000);
+        return;
+    }
+
+    function processDetectionResults(data) {
+        // Update UI with results
+        document.getElementById('resultRfid').textContent = data.rfid || rfidValue;
+        document.getElementById('resultWeight').textContent = data.weight || weightValue;
+        document.getElementById('resultSex').textContent = data.sex || sexValue;
+        
+        // Molting status
+        const isMolting = Boolean(data.molting_prediction);
+        const confidencePercent = Math.min(100, Math.max(0, (data.confidence * 100))).toFixed(1);
+        
+        const resultMolting = document.getElementById('resultMolting');
+        resultMolting.textContent = isMolting ? 'Molting' : 'Normal';
+        resultMolting.className = isMolting ? 'badge bg-warning' : 'badge bg-success';
+        
+        // Confidence indicator
+        document.getElementById('resultConfidence').textContent = `${confidencePercent}%`;
+        document.getElementById('confidenceProgress').style.width = `${confidencePercent}%`;
+        
+        // Detection time
+        const detectionTime = data.detection_time ? new Date(data.detection_time) : new Date();
+        document.getElementById('resultTime').textContent = detectionTime.toLocaleString();
+        
+        // Image handling
+        const resultImg = document.getElementById('resultImage');
+        if (data.image_path) {
+            resultImg.src = data.image_path;
+        } else {
+            // Fallback to preview image
+            resultImg.src = imagePreview.src;
+        }
+        
+        // Show results
+        manualDetectionForm.style.display = 'none';
+        resultsContainer.style.display = 'block';
+        
+        // Final log entry
+        addLogEntry(
+            `Penguin ${isMolting ? 'is MOLTING' : 'is NORMAL'} (${confidencePercent}% probability)`,
+            isMolting ? 'warning' : 'success'
+        );
+        submitBtn.innerHTML = originalBtnText;
+        submitBtn.disabled = false;
+    }
+});// New detection button handling
+        newDetectionBtn.addEventListener('click', () => {
+            // Clear form
+            manualDetectionForm.reset();
+            imagePreview.style.display = 'none';
+            uploadArea.classList.remove('active');
+            
+            // Hide database update indicator
+            databaseUpdateIndicator.style.display = 'none';
+            
+            // Show form and hide results
+            manualDetectionForm.style.display = 'block';
+            resultsContainer.style.display = 'none';
+            
+            addLogEntry('Ready for new detection');
+        });
+        
+        // View database button
+        viewDatabaseBtn.addEventListener('click', () => {
+            window.location.href = '/database.html';
+        });
+        
+        // View history button
+        viewHistoryBtn.addEventListener('click', () => {
+            window.location.href = '/history.html';
+        });
+        
+        // Initialize
+        addLogEntry('Detection system initialized', 'success');
+    </script>
+</body>
+</html>
