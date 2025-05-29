@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Detection - Penguin Monitoring System</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+  <style>
+    body {
+      background-color: #f0f8ff;
+    }
+    .header {
+      text-align: center;
+      padding: 1.5rem 0;
+      background-color: transparent;
+      color: #2d3748;
+    }
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .header p {
+      color: #4a5568;
+      margin-bottom: 0;
+    }
+    .header .penguin-icon {
+      color: #9370DB;
+      margin-right: 0.75rem;
+    }
+    .nav-container {
+      background-color: #e3f2fd;
+      padding: 0.5rem 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .nav-link {
+      color: #495057;
+      padding: 0.5rem 1rem;
+      margin: 0 0.25rem;
+    }
+    .nav-link.active {
+      background-color: #0d6efd;
+      color: white;
+      border-radius: 0.25rem;
+    }
+    .gauge-card {
+      text-align: center;
+      padding: 1rem;
+    }
+    .gauge-value {
+      font-size: 2.5rem;
+      font-weight: bold;
+    }
+    .gauge-label {
+      font-size: 1.1rem;
+      color: #6c757d;
+    }
+    .status-indicator {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+    }
+    .status-connected {
+      background-color: #28a745;
+    }
+    #live-camera-feed {
+      transition: opacity 0.3s ease;
+    }
+    #live-camera-feed.updating {
+      opacity: 0.7;
+    }
+    .connection-status {
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+    .connection-status .indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .connection-status.connected {
+      background-color: rgba(40, 167, 69, 0.1);
+      color: #28a745;
+    }
+    .connection-status.connected .indicator {
+      background-color: #28a745;
+      animation: pulse 2s infinite;
+    }
+    .connection-status.disconnected {
+      background-color: rgba(220, 53, 69, 0.1);
+      color: #dc3545;
+    }
+    .connection-status.disconnected .indicator {
+      background-color: #dc3545;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+    .status-disconnected {
+      background-color: #dc3545;
+    }
+    .latest-detection {
+      margin-top: 20px;
+    }
+    .detection-img {
+      max-width: 100%;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .env-chart {
+      min-height: 250px;
+    }
+    .penguin-silhouette {
+      max-width: 200px;
+      opacity: 0.7;
+      margin: 20px auto;
+      display: block;
+    }
+    .refresh-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+    }
+    .data-timestamp {
+      font-size: 0.8rem;
+      color: #6c757d;
+      text-align: right;
+    }
+    .live-image-container {
+      position: relative;
+      overflow: hidden;
+      border-radius: 5px;
+      max-height: 300px;
+      background-color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .live-image-container img {
+      max-width: 100%;
+      max-height: 300px;
+    }
+    .live-indicator {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background-color: rgba(220, 53, 69, 0.8);
+      color: white;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+    }
+    .live-indicator::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background-color: #fff;
+      border-radius: 50%;
+      margin-right: 5px;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink {
+      0% { opacity: 0; }
+      50% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    .detection-card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      overflow: hidden;
+      display: flex;
+    }
+    .detection-image {
+      width: 150px;
+      height: 150px;
+      object-fit: cover;
+    }
+    .detection-details {
+      padding: 15px;
+      flex: 1;
+    }
+    .status-healthy {
+      color: #28a745;
+    }
+    .status-warning {
+      color: #ffc107;
+    }
+    .status-critical {
+      color: #dc3545;
+    }
+    .confidence-high {
+      font-weight: bold;
+      color: #28a745;
+    }
+    .confidence-medium {
+      color: #ffc107;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="container">
+      <h1><span class="penguin-icon"></span> Penguin Monitoring System</h1>
+      <p>Track and monitor penguin health and molting status</p>
+    </div>
+  </div>
+
+  <div class="nav-container">
+    <div class="container">
+      <div class="d-flex justify-content-center">
+        <a class="nav-link" href="/">Dashboard</a>
+        <a class="nav-link active" href="/detection.html">Live Detection</a>
+        <a class="nav-link" href="/database.html">Penguin Database</a>
+        <a class="nav-link" href="/history.html">Detection History</a>
+        <a class="nav-link" href="/manual.html">Manual Detection</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container my-4">
+    <h2>Live Detection</h2>
+    
+    <div class="alert alert-info d-flex align-items-center" id="connection-status">
+      <div id="status-indicator" class="status-indicator status-disconnected"></div>
+      <div>
+        ESP32 Connection: <span id="connection-text">Disconnected</span>
+      </div>
+      <button id="refresh-btn" class="btn btn-sm btn-outline-primary ms-auto">
+        <i class="bi bi-arrow-clockwise"></i> Refresh
+      </button>
+    </div>
+    
+    <div class="row">
+      <div class="col-lg-8">
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Live Camera Feed</h5>
+            <span class="badge bg-danger" id="camera-status">Offline</span>
+          </div>
+          <div class="card-body p-2">
+            <div class="live-image-container">
+              <img id="live-camera-feed" src="/static/placeholder-camera.jpg" alt="Live camera feed">
+              <div class="live-indicator">LIVE</div>
+            </div>
+            <div class="data-timestamp text-end mt-2">
+              Last frame: <span id="camera-timestamp">--</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="card-title mb-0">Environmental Conditions</h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-3">
+                <div class="gauge-card">
+                  <div class="gauge-value" id="temperature">--</div>
+                  <div class="gauge-label">Temperature (°C)</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="gauge-card">
+                  <div class="gauge-value" id="humidity">--</div>
+                  <div class="gauge-label">Humidity (%)</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="gauge-card">
+                  <div class="gauge-value" id="light">--</div>
+                  <div class="gauge-label">Light Level</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="gauge-card">
+                  <div class="gauge-value" id="pressure">--</div>
+                  <div class="gauge-label">Pressure (hPa)</div>
+                </div>
+              </div>
+            </div>
+            <div class="data-timestamp text-end mt-2">
+              Last updated: <span id="env-timestamp">--</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="card-title mb-0">Environmental Trends</h5>
+          </div>
+          <div class="card-body">
+            <canvas id="envChart" class="env-chart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-lg-4">
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="card-title mb-0">Latest Detection</h5>
+          </div>
+          <div class="card-body text-center" id="latest-detection">
+            <div id="no-detection" class="py-4">
+              <img src="/static/penguin-silhouette.png" alt="No detection yet" class="penguin-silhouette">
+              <p class="text-muted">No penguin detected yet</p>
+              <p class="text-muted small">The system will automatically update when a penguin is detected</p>
+            </div>
+            <div id="detection-info" style="display: none;">
+              <img id="detection-image" src="" alt="Latest penguin detection" class="detection-img mb-3">
+              <div class="text-start">
+                <p><strong>RFID:</strong> <span id="detection-rfid">--</span></p>
+                <p><strong>Weight:</strong> <span id="detection-weight">--</span> kg</p>
+                <p><strong>Status:</strong> <span id="detection-status">--</span></p>
+                <p><strong>Stage:</strong> <span id="detection-stage">--</span></p>
+                <p><strong>Confidence:</strong> <span id="detection-confidence">--</span></p>
+                <p><strong>Detected at:</strong> <span id="detection-timestamp">--</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Most Recent Detection</h5>
+            <div>
+              <span class="last-updated me-3 small">Last updated: <span id="update-time">Loading...</span></span>
+              <button class="btn btn-sm btn-outline-primary" onclick="loadRecentDetections()">
+                <i class="bi bi-arrow-clockwise"></i>
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="detections-container">
+              <div class="text-center py-3">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // Initialize environmental chart with better configuration
+    const envCtx = document.getElementById('envChart').getContext('2d');
+    const envChart = new Chart(envCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Temperature (°C)',
+            data: [],
+            borderColor: 'rgba(255, 99, 132, 1)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            tension: 0.1,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Humidity (%)',
+            data: [],
+            borderColor: 'rgba(54, 162, 235, 1)',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            tension: 0.1,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false
+          }
+        },
+        scales: {
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: {
+              display: true,
+              text: 'Temperature (°C)'
+            }
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            title: {
+              display: true,
+              text: 'Humidity (%)'
+            },
+            grid: {
+              drawOnChartArea: false,
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Time'
+            }
+          }
+        }
+      }
+    });
+
+    // Store historical data for the chart
+    const envDataHistory = {
+      temperature: [],
+      humidity: [],
+      timestamps: []
+    };
+    const MAX_HISTORY = 20; // Keep last 20 data points for better trend visibility
+
+    function getConfidenceClass(confidence) {
+      if (confidence > 0.9) return 'confidence-high';
+      if (confidence > 0.7) return 'confidence-medium';
+      return '';
+    }
+
+    function getStatusClass(isMolting, weight) {
+      if (isMolting) return 'status-warning';
+      if (weight && weight < 3.5) return 'status-critical';
+      return 'status-healthy';
+    }
+
+    function getStatusText(isMolting, weight) {
+      if (isMolting) return 'Molting';
+      if (weight && weight < 3.5) return 'Underweight';
+      return 'Healthy';
+    }
+
+    async function loadRecentDetections() {
+      // Show loading state
+      document.getElementById('detections-container').innerHTML = `
+        <div class="text-center py-3">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>`;
+      
+      try {
+        const response = await fetch('/api/recent-detections');
+        if (!response.ok) throw new Error('Network response was not ok');
+        
+        const detections = await response.json();
+        const container = document.getElementById('detections-container');
+        
+        if (!detections || detections.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-3 text-muted">
+              <img src="/static/penguin-silhouette.png" alt="No detections" class="penguin-silhouette">
+              <p>No penguins detected recently</p>
+            </div>`;
+          return;
+        }
+        
+        // Only show the most recent detection (first item in array)
+        const detection = detections[0];
+        const statusClass = getStatusClass(detection.molting_prediction, detection.weight);
+        const statusText = getStatusText(detection.molting_prediction, detection.weight);
+        const detectionTime = new Date(detection.detection_time).toLocaleTimeString();
+        
+        container.innerHTML = `
+          <div class="row g-0">
+            <div class="col-md-4">
+              <img src="${detection.image_path}" class="img-fluid rounded-start" alt="Penguin ${detection.rfid}" 
+                onerror="this.src='/static/uploads/default-penguin.jpg'">
+            </div>
+            <div class="col-md-8">
+              <div class="card-body py-2">
+                <h6 class="card-title mb-1">🐧 ${detection.rfid}</h6>
+                <div class="row small">
+                  <div class="col-6">
+                    <div class="text-muted">Status</div>
+                    <div class="${statusClass}">${statusText}</div>
+                  </div>
+                  <div class="col-6">
+                    <div class="text-muted">Confidence</div>
+                    <div class="${getConfidenceClass(detection.confidence)}">
+                      ${(detection.confidence * 100).toFixed(1)}%
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="text-muted">Weight</div>
+                    <div>${detection.weight ? detection.weight + ' kg' : 'Unknown'}</div>
+                  </div>
+                  <div class="col-6">
+                    <div class="text-muted">Time</div>
+                    <div>${detectionTime}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        
+        document.getElementById('update-time').textContent = new Date().toLocaleTimeString();
+      } catch (error) {
+        console.error('Failed to load detections:', error);
+        document.getElementById('detections-container').innerHTML = `
+          <div class="text-center py-3 text-danger">
+            <p class="mb-2">Failed to load detection data</p>
+            <button class="btn btn-sm btn-outline-primary" onclick="loadRecentDetections()">Retry</button>
+          </div>`;
+      }
+    }
+
+    // Live data connection and updates
+    let eventSource;
+    let lastUpdateTime = 0;
+    
+    function connectToLiveData() {
+      // Close previous connection if exists
+      if (eventSource) {
+        eventSource.close();
+      }
+      
+      // Update connection status
+      updateConnectionStatus(false, "Connecting...");
+      
+      // Create new SSE connection
+      eventSource = new EventSource('/api/esp32-sse');
+      
+      eventSource.onopen = function() {
+        updateConnectionStatus(true, "Connected");
+        console.log("SSE connection established");
+      };
+      
+      eventSource.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        console.log("Received live data:", data);
+        lastUpdateTime = Date.now();
+        updateLiveDataUI(data);
+      };
+      
+      eventSource.onerror = function() {
+        updateConnectionStatus(false, "Disconnected");
+        console.error("SSE connection error");
+        // Attempt to reconnect after delay
+        setTimeout(connectToLiveData, 5000);
+      };
+    }
+    
+    function updateConnectionStatus(isConnected, message) {
+      const indicator = document.getElementById('status-indicator');
+      const statusText = document.getElementById('connection-text');
+      
+      if (isConnected) {
+        indicator.classList.remove('status-disconnected');
+        indicator.classList.add('status-connected');
+        statusText.textContent = message || "Connected";
+      } else {
+        indicator.classList.remove('status-connected');
+        indicator.classList.add('status-disconnected');
+        statusText.textContent = message || "Disconnected";
+      }
+    }
+    
+    function updateLiveDataUI(data) {
+      // Update camera feed if image is available
+      if (data.image_path) {
+        const img = document.getElementById('live-camera-feed');
+        img.classList.add('updating');
+        setTimeout(() => {
+          img.src = data.image_path + '?t=' + new Date().getTime(); // Cache buster
+          img.onload = () => img.classList.remove('updating');
+        }, 300);
+        document.getElementById('camera-status').textContent = "Online";
+        document.getElementById('camera-timestamp').textContent = 
+          new Date(data.timestamp || Date.now()).toLocaleTimeString();
+      }
+      
+      // Update environmental data
+      if (data.temperature !== undefined) {
+        document.getElementById('temperature').textContent = data.temperature.toFixed(1);
+      }
+      if (data.humidity !== undefined) {
+        document.getElementById('humidity').textContent = data.humidity.toFixed(1);
+      }
+      if (data.light_level !== undefined) {
+        document.getElementById('light').textContent = data.light_level;
+      }
+      if (data.pressure !== undefined) {
+        document.getElementById('pressure').textContent = data.pressure.toFixed(1);
+      }
+      
+      // Update timestamp
+      const currentTime = new Date(data.timestamp || Date.now());
+      document.getElementById('env-timestamp').textContent = currentTime.toLocaleTimeString();
+      
+      // Update environmental chart when we have both temperature and humidity
+      if (data.temperature !== undefined && data.humidity !== undefined) {
+        // Add new data points
+        envDataHistory.temperature.push(data.temperature);
+        envDataHistory.humidity.push(data.humidity);
+        envDataHistory.timestamps.push(currentTime.toLocaleTimeString());
+        
+        // Keep only the most recent data points
+        if (envDataHistory.temperature.length > MAX_HISTORY) {
+          envDataHistory.temperature.shift();
+          envDataHistory.humidity.shift();
+          envDataHistory.timestamps.shift();
+        }
+        
+        // Update chart
+        envChart.data.labels = envDataHistory.timestamps;
+        envChart.data.datasets[0].data = envDataHistory.temperature;
+        envChart.data.datasets[1].data = envDataHistory.humidity;
+        envChart.update();
+      }
+      
+      // Check for penguin detection data
+      if (data.rfid) {
+        updateDetectionUI(data);
+        // Refresh recent detections when new detection comes in
+        loadRecentDetections();
+      }
+    }
+    
+    function updateDetectionUI(detection) {
+      const detectionInfo = document.getElementById('detection-info');
+      const noDetection = document.getElementById('no-detection');
+      
+      // Show detection info and hide placeholder
+      noDetection.style.display = 'none';
+      detectionInfo.style.display = 'block';
+      
+      // Update detection details
+      document.getElementById('detection-image').src = detection.image_path;
+      document.getElementById('detection-rfid').textContent = detection.rfid;
+      document.getElementById('detection-weight').textContent = detection.weight ? detection.weight.toFixed(2) : '--';
+      document.getElementById('detection-status').textContent = detection.health || '--';
+      document.getElementById('detection-stage').textContent = detection.stage_name || '--';
+      document.getElementById('detection-confidence').textContent = 
+        detection.confidence ? (detection.confidence * 100).toFixed(1) + '%' : '--';
+      document.getElementById('detection-timestamp').textContent = 
+        detection.detection_time ? new Date(detection.detection_time).toLocaleString() : '--';
+      
+      // Update status color based on health status
+      const statusElement = document.getElementById('detection-status');
+      statusElement.className = ''; // Reset classes
+      
+      if (detection.health === 'Healthy') {
+        statusElement.classList.add('status-healthy');
+      } else if (detection.health === 'Molting') {
+        statusElement.classList.add('status-warning');
+      } else if (detection.health === 'Underweight') {
+        statusElement.classList.add('status-critical');
+      }
+    }
+    
+    // Function to fetch environmental data
+    async function fetchEnvironmentalData() {
+      try {
+        const response = await fetch('/api/esp32-live');
+        if (!response.ok) throw new Error('Network response was not ok');
+        
+        const data = await response.json();
+        if (data.success && data.data) {
+          updateLiveDataUI(data.data);
+        }
+      } catch (error) {
+        console.error("Error fetching environmental data:", error);
+      }
+    }
+    
+    // Manual refresh button
+    document.getElementById('refresh-btn').addEventListener('click', fetchEnvironmentalData);
+    
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      connectToLiveData();
+      loadRecentDetections();
+      
+      // Check connection status periodically
+      setInterval(function() {
+        if (Date.now() - lastUpdateTime > 10000) { // 10 seconds without updates
+          updateConnectionStatus(false, "No recent data");
+        }
+      }, 5000);
+      
+      // Auto-refresh detections every 30 seconds
+      setInterval(loadRecentDetections, 5000);
+      
+      // Initial fetch of environmental data
+      fetchEnvironmentalData();
+    });
+  </script>
+</body>
+</html>

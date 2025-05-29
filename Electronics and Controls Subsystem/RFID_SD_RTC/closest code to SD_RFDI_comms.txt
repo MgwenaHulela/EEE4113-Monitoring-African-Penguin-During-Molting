@@ -1,0 +1,155 @@
+
+
+
+15:22:07.757 -> SD initialized on CS=5
+15:22:07.757 -> SD card type: SDHC
+15:22:07.757 -> Created log.txt
+15:22:07.757 -> Setup complete ▶ awaiting RFID or timeout
+15:22:11.359 -> Tag ▶ UID=FA:E5:35:02
+15:22:11.359 -> ERROR: log append failed
+15:22:11.359 -> --- Log contents ---
+15:22:11.359 -> ERROR: log read failed
+15:22:11.359 -> Cycle complete ▶ next iteration
+15:22:13.040 -> Tag ▶ UID=77:43:C0:01
+15:22:13.040 -> ERROR: log append failed
+15:22:13.040 -> --- Log contents ---
+15:22:13.040 -> ERROR: log read failed
+
+
+
+#include <SPI.h>
+#include <MFRC522.h>
+#include <SD.h>
+
+// Pin definitions
+#define RST_PIN      26   // MFRC522 RST
+#define RFID_SS_PIN  15   // MFRC522 CS
+#define SD_CS_PIN     5   // SD Card CS
+
+// Log filename
+const char* LOG_FILENAME = "log.txt";
+
+MFRC522 mfrc522(RFID_SS_PIN, RST_PIN);
+File logFile;
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial);
+
+  // Configure CS pins as outputs, start HIGH (deselected)
+  pinMode(RFID_SS_PIN, OUTPUT);
+  pinMode(SD_CS_PIN, OUTPUT);
+  digitalWrite(RFID_SS_PIN, HIGH);
+  digitalWrite(SD_CS_PIN, HIGH);
+
+  // Initialize SPI on default VSPI (SCK=18, MISO=19, MOSI=23)
+  SPI.begin();
+  Serial.println(F("SPI initialized on VSPI (18,19,23)"));
+
+  // Initialize RFID reader
+  mfrc522.PCD_Init();
+  Serial.println(F("RFID initialized on CS=15"));
+
+  // Initialize SD card
+  if (!SD.begin(SD_CS_PIN)) {
+    Serial.println(F("ERROR: SD.begin() failed on CS=5"));
+    while (1);
+  }
+  Serial.println(F("SD initialized on CS=5"));
+
+  // Report card type
+  uint8_t type = SD.cardType();
+  Serial.print(F("SD card type: "));
+  switch (type) {
+    case CARD_NONE:  Serial.println(F("NONE"));  break;
+    case CARD_MMC:   Serial.println(F("MMC"));   break;
+    case CARD_SD:    Serial.println(F("SDSC"));  break;
+    case CARD_SDHC:  Serial.println(F("SDHC"));  break;
+    default:         Serial.println(F("UNKNOWN")); break;
+  }
+
+  // Create log file if missing
+  if (!SD.exists(LOG_FILENAME)) {
+    File f = SD.open(LOG_FILENAME, FILE_WRITE);
+    if (f) f.close();
+    Serial.printf("Created %s\n", LOG_FILENAME);
+  }
+
+  Serial.println(F("Setup complete ▶ awaiting RFID or timeout"));
+}
+
+void loop() {
+  String uid;
+  bool seen = false;
+  unsigned long start = millis();
+
+  // Poll RFID module up to 5 seconds
+  while (millis() - start < 5000) {
+    // Deselect SD, select RFID
+    digitalWrite(SD_CS_PIN, HIGH);
+    digitalWrite(RFID_SS_PIN, LOW);
+
+    if (mfrc522.PICC_IsNewCardPresent() &&
+        mfrc522.PICC_ReadCardSerial()) {
+      // Build UID string in hex
+      for (byte i = 0; i < mfrc522.uid.size; i++) {
+        if (mfrc522.uid.uidByte[i] < 0x10) uid += '0';
+        uid += String(mfrc522.uid.uidByte[i], HEX);
+        if (i < mfrc522.uid.size - 1) uid += ':';
+      }
+      uid.toUpperCase();
+      Serial.print(F("Tag ▶ UID="));
+      Serial.println(uid);
+      mfrc522.PICC_HaltA();
+      seen = true;
+      break;
+    }
+
+    // Deselect RFID if no tag this iteration
+    digitalWrite(RFID_SS_PIN, HIGH);
+  }
+
+  if (!seen) {
+    uid = "UNKNOWN";
+    Serial.println(F("No tag in 5s ▶ logging UNKNOWN"));
+  }
+
+  // Write to SD: deselect RFID, select SD
+  digitalWrite(RFID_SS_PIN, HIGH);
+  digitalWrite(SD_CS_PIN, LOW);
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));
+  logFile = SD.open(LOG_FILENAME, FILE_APPEND);
+  if (logFile) {
+    logFile.println(uid);
+    logFile.close();
+    Serial.print(F("Logged ▶ "));
+    Serial.println(uid);
+  } else {
+    Serial.println(F("ERROR: log append failed"));
+  }
+  SPI.endTransaction();
+  digitalWrite(SD_CS_PIN, HIGH);
+
+  // Read back log
+  digitalWrite(RFID_SS_PIN, HIGH);
+  digitalWrite(SD_CS_PIN, LOW);
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));
+  Serial.println(F("--- Log contents ---"));
+  logFile = SD.open(LOG_FILENAME);
+  if (logFile) {
+    while (logFile.available()) {
+      Serial.write(logFile.read());
+    }
+    logFile.close();
+  } else {
+    Serial.println(F("ERROR: log read failed"));
+  }
+  SPI.endTransaction();
+  digitalWrite(SD_CS_PIN, HIGH);
+
+  Serial.println(F("Cycle complete ▶ next iteration"));
+  delay(1000);
+}
+
+
+make analysis

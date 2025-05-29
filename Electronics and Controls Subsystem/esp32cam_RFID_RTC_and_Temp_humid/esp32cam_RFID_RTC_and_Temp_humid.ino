@@ -1,0 +1,169 @@
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+#include "RTClib.h"
+#include <SPI.h>
+#include <MFRC522.h>
+#include <WiFi.h>
+
+#define SEALEVELPRESSURE_HPA (1013.25)
+
+// ─── Hardware pins ────────────────────────────────────────────────────────────
+// BME280 & RTC → I2C on default Wire pins
+// MFRC522 on VSPI:
+//   SCK  → GPIO18
+//   MOSI → GPIO23
+//   MISO → GPIO19
+//   SDA  → GPIO5  (CS / SS)
+//   RST  → GPIO26 (RESET)
+#define SS_PIN   5
+#define RST_PIN  26
+
+// ─── Penguins mapping ─────────────────────────────────────────────────────────
+constexpr size_t NUM_PENGUINS = 2;
+const char* penguins[NUM_PENGUINS][2] = {
+  { "FAE53502", "Penguin A" },
+  { "C376C001", "Penguin B" }
+};
+
+String getPenguinName(const String &uid) {
+  for (size_t i = 0; i < NUM_PENGUINS; i++) {
+    if (uid == penguins[i][0]) {
+      return String(penguins[i][1]);
+    }
+  }
+  return "Unknown";
+}
+
+// ─── Sensor & peripheral objects ─────────────────────────────────────────────
+Adafruit_BME280 bme;
+RTC_DS3231       rtc;
+MFRC522          mfrc522(SS_PIN, RST_PIN);
+
+// ─── Wi-Fi AP settings ───────────────────────────────────────────────────────
+const char* ap_ssid = "Penguin_AP";
+const char* ap_password = "penguin123";
+
+WiFiServer server(9002); // listen for camera connections
+IPAddress local_IP(192,168,4,1);
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial);
+
+  // I²C init for BME280 & RTC
+  Wire.begin();
+
+  // BME280 init
+  if (!bme.begin(0x76)) {
+    Serial.println("BME280 not found!");
+    while (1) delay(10);
+  }
+
+  // RTC init
+  if (!rtc.begin()) {
+    Serial.println("RTC not found!");
+    while (1) delay(10);
+  }
+  if (rtc.lostPower()) {
+    rtc.adjust(DateTime(2025, 4, 28,  4, 10,  0));
+  }
+
+  // VSPI init for RFID
+  SPI.begin(18, 19, 23, SS_PIN);
+  mfrc522.PCD_Init();
+
+  // Setup Wi-Fi Access Point
+  WiFi.softAP(ap_ssid, ap_password);
+  IPAddress myIP = WiFi.softAPIP();
+  Serial.print("Access Point IP address: ");
+  Serial.println(myIP);
+
+  server.begin();
+  Serial.println("Server listening on port 9002");
+
+  Serial.println("System ready. Tap a tag to log:");
+}
+
+void loop() {
+  // Wait for a new RFID card
+  if (!mfrc522.PICC_IsNewCardPresent()) return;
+  if (!mfrc522.PICC_ReadCardSerial()) return;
+
+  // Build UID string (uppercase hex)
+  String uidStr;
+  for (byte i = 0; i < mfrc522.uid.size; i++) {
+    if (mfrc522.uid.uidByte[i] < 0x10) uidStr += '0';
+    uidStr += String(mfrc522.uid.uidByte[i], HEX);
+  }
+  uidStr.toUpperCase();
+
+  // Read timestamp, temp, humidity
+  DateTime now = rtc.now();
+  char ts[20];
+  snprintf(ts, sizeof(ts),
+    "%04d-%02d-%02d %02d:%02d:%02d",
+    now.year(), now.month(), now.day(),
+    now.hour(), now.minute(), now.second()
+  );
+
+  float temp  = bme.readTemperature();
+  float hum   = bme.readHumidity();
+
+  // Lookup penguin name
+  String name = getPenguinName(uidStr);
+
+  // ─── Connect to ESP32-CAM ─────────────────────────────────────────────
+  WiFiClient client;
+  if (!client.connect(IPAddress(192,168,4,2), 9002)) { // ESP32-CAM expected IP
+    Serial.println("❌ Failed to connect to ESP32-CAM");
+  } else {
+    Serial.println("✅ Connected to ESP32-CAM");
+
+    // Send a trigger command to ESP32-CAM to capture an image
+    client.write('T'); // Send trigger command
+
+    // Read the 4-byte header to receive image data length
+    uint8_t hdr[4];
+    int bytesRead = client.readBytes(hdr, 4);
+    if (bytesRead != 4) {
+      Serial.println("❌ Failed to read image header");
+      client.stop();
+      return;
+    }
+
+    uint32_t imgLen = (hdr[0]<<24) | (hdr[1]<<16) | (hdr[2]<<8) | hdr[3];
+    if (imgLen == 0xFFFFFFFF) {
+      Serial.println("❌ Camera capture failed");
+      client.stop();
+      return;
+    }
+
+    // Save image to SD card or buffer (not implemented here)
+    // For demo: just skip image reception
+    uint8_t dummy;
+    for (uint32_t i=0; i<imgLen; i++) {
+      client.readBytes(&dummy, 1);
+    }
+
+    Serial.printf("✅ Received image (%u bytes)\n", imgLen);
+
+    client.stop();
+  }
+
+  // ─── Print penguin info + timestamp ──────────────────────────────────────
+  Serial.print(ts);
+  Serial.print(", ");
+  Serial.print(name);
+  Serial.print(" (");
+  Serial.print(uidStr);
+  Serial.print("), ");
+  Serial.print(temp, 1);
+  Serial.print("°C, ");
+  Serial.print(hum, 1);
+  Serial.println("%");
+
+  // Cleanup
+  mfrc522.PICC_HaltA();
+  mfrc522.PCD_StopCrypto1();
+}
